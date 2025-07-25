@@ -1,6 +1,8 @@
+black==25.1.0
 Django==4.2
 djangorestframework==3.16.0
 django-redis==6.0.0
-jwt==1.4.0
+pre_commit==4.2.0
 psycopg2-binary==2.9.10
+PyJWT==2.10.1
 python-dotenv==1.1.1
