@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: dongdong
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    depends_on:
+      - postgres
+      - redis
+    command: python3 manage.py runserver 0.0.0.0:${APP_PORT}
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: dongdong-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: dongdong-redis
+    restart: always
+
+volumes:
+  postgres_data:
