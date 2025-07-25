@@ -9,7 +9,7 @@ services:
     depends_on:
       - postgres
       - redis
-    command: python3 manage.py migrate && python3 manage.py runserver 0.0.0.0:${APP_PORT}
+    command: sh -c "python3 manage.py migrate && python3 manage.py runserver 0.0.0.0:${APP_PORT}"
 
   postgres:
     image: postgres:15-alpine
