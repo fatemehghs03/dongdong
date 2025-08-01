@@ -3,6 +3,6 @@ repos:
     hooks:
       - id: black
         name: Check with Black
-        entry: bash -c "black --check --line-length 120 --exclude 'migrations|static|build|dist|\\.venv|manage\\.py|asgi\\.py|wsgi\\.py' ."
+        entry: bash -c "black --line-length 120 --exclude 'migrations|static|build|dist|\\.venv|manage\\.py|asgi\\.py|wsgi\\.py' ."
         language: system
         types: [python]

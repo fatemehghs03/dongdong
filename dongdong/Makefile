@@ -6,6 +6,8 @@ makemigrations:
 	python manage.py makemigrations
 createsuperuser:
 	python manage.py createsuperuser
+startapp:
+	python manage.py startapp $(name)
 up:
 	docker compose up --build -d
 down:
