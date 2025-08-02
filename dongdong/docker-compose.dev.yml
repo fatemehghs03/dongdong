@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  app:
+    command: sh -c "python3 manage.py migrate && python3 manage.py runserver 0.0.0.0:${APP_PORT}"
+    volumes:
+      - .:/app
+  postgres:
+    volumes:
+      - ./postgres_dev_data:/var/lib/postgresql/data

@@ -18,10 +18,20 @@ from groups.serializers import (
     InvitationUpdateSerializer,
 )
 from groups.models import Group, GroupJoinRequest, Membership, GroupInvitation
+from groups.permissions import (
+    IsGroupAdminOrOwnerWhitGroup,
+    IsGroupAdminOrOwnerWhitRequest,
+    IsGroupAdminOrOwnerWhitMembership,
+)
 
 
 class GroupView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == "PATCH":
+            permission_classes = [IsGroupAdminOrOwnerWhitGroup, permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def post(self, request):
         serializer = GroupWriteSerializer(data=request.data, context={"request": request})
@@ -33,24 +43,12 @@ class GroupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        group = get_object_or_404(Group, pk=pk)
-
-        admins = Membership.objects.filter(group=group, role=Membership.Role.OWNER)
-
-        if request.user.id not in admins.values_list("user_id", flat=True):
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
         group = get_object_or_404(Group, pk=pk, owner=request.user)
         group.delete()
         return Response({"detail": pk}, status=status.HTTP_204_NO_CONTENT)
 
     def patch(self, request, pk):
         group = get_object_or_404(Group, pk=pk)
-
-        admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
-
-        if request.user.id not in admins.values_list("user_id", flat=True):
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = GroupWriteSerializer(group, data=request.data, partial=True)
         if serializer.is_valid():
@@ -73,7 +71,12 @@ class GroupView(APIView):
 
 
 class JoinRequestView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == "PATCH":
+            permission_classes = [IsGroupAdminOrOwnerWhitRequest, permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def post(self, request):
         serializer = JoinRequestWriteSerializer(data=request.data, context={"request": request})
@@ -97,11 +100,8 @@ class JoinRequestView(APIView):
             group = join_request.group
             admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
 
-            if request.user.id not in admins.values_list("user_id", flat=True) and not join_request:
+            if request.user.id not in admins.values_list("user_id", flat=True) and join_request.user != request.user:
                 return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-            if request.user.id in admins.values_list("user_id", flat=True):
-                join_request = get_object_or_404(GroupJoinRequest, pk=pk)
 
             serializer = JoinRequestReadSerializer(join_request)
             return Response(serializer.data)
@@ -112,12 +112,6 @@ class JoinRequestView(APIView):
 
     def patch(self, request, pk):
         join_request = get_object_or_404(GroupJoinRequest, pk=pk)
-
-        group = join_request.group
-        admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
-
-        if request.user.id not in admins.values_list("user_id", flat=True):
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = JoinRequestUpdateSerializer(
             join_request, data=request.data, partial=True, context={"request": request}
@@ -130,14 +124,10 @@ class JoinRequestView(APIView):
 
 
 class GroupJoinRequestView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsGroupAdminOrOwnerWhitGroup]
 
     def get(self, request, pk):
         group = get_object_or_404(Group, pk=pk)
-        admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
-
-        if request.user.id not in admins.values_list("user_id", flat=True):
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         requests = GroupJoinRequest.objects.filter(group=group)
         serializer = JoinRequestReadSerializer(requests, many=True)
@@ -145,7 +135,12 @@ class GroupJoinRequestView(APIView):
 
 
 class MembershipView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method in ["PATCH", "DELETE"]:
+            permission_classes = [IsGroupAdminOrOwnerWhitMembership, permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def post(self, request):
         serializer = MembershipWriteSerializer(data=request.data)
@@ -180,21 +175,11 @@ class MembershipView(APIView):
 
     def delete(self, request, pk):
         membership = get_object_or_404(Membership, pk=pk)
-        group = membership.group
-        admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
-        if request.user.id not in admins.values_list("user_id", flat=True) and request.user != membership.user:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         membership.delete()
         return Response({"detail": pk}, status=status.HTTP_204_NO_CONTENT)
 
     def patch(self, request, pk):
         membership = get_object_or_404(Membership, pk=pk)
-
-        group = membership.group
-        admins = Membership.objects.filter(group=group, role__in=[Membership.Role.ADMIN, Membership.Role.OWNER])
-
-        if request.user.id not in admins.values_list("user_id", flat=True):
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = MembershipUpdateSerializer(
             membership, data=request.data, partial=True, context={"request": request}
