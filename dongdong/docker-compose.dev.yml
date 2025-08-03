@@ -7,4 +7,4 @@ services:
       - .:/app
   postgres:
     volumes:
-      - ./postgres_dev_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data

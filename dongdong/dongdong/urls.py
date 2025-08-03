@@ -24,5 +24,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("users/", include("users.urls")),
     path("groups/", include("groups.urls")),
+    path("expenses/", include("expenses.urls")),
     path("health-check/", HealthCheckView.as_view(), name="health-check"),
 ]

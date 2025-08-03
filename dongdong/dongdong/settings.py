@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "users.apps.UsersConfig",
     "groups.apps.GroupsConfig",
+    "expenses.apps.ExpensesConfig",
 ]
 
 MIDDLEWARE = [

@@ -18,7 +18,7 @@ restart:
 	docker compose down && docker compose up --build -d
 check:
 	black --check --line-length 120 --exclude '(migrations|static|build|dist|\.venv|manage\.py|asgi\.py|wsgi\.py|wsgi\.py)' .
-up dev:
+up-dev:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
-up prod:
+up-prod:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
