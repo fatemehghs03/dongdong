@@ -16,8 +16,11 @@ from groups.serializers import (
     InvitationReadSerializer,
     InvitationWriteSerializer,
     InvitationUpdateSerializer,
+    InvitationByPhoneSerializer,
+    InvitationListSerializer,
 )
 from groups.models import Group, GroupJoinRequest, Membership, GroupInvitation
+from users.models import User
 from groups.permissions import (
     IsGroupAdminOrOwnerWhitGroup,
     IsGroupAdminOrOwnerWhitRequest,
@@ -310,3 +313,85 @@ class GroupInvitationView(APIView):
 
         serializer = InvitationReadSerializer(invitations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class InviteByPhoneView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = InvitationByPhoneSerializer(data=request.data, context={"request": request})
+
+        if serializer.is_valid():
+            group = serializer.validated_data["group"]
+            phone_number = serializer.validated_data["phone_number"]
+            
+            # Check if user is already in the group
+            invited_user = User.objects.get(phone_number=phone_number)
+            if Membership.objects.filter(group=group, user=invited_user).exists():
+                return Response(
+                    {"detail": "User is already a member of this group"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check if invitation already exists
+            if GroupInvitation.objects.filter(group=group, invited_user=invited_user, status="pending").exists():
+                return Response(
+                    {"detail": "Invitation already sent to this user"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check if user has permission to invite
+            admins = Membership.objects.filter(
+                group=group,
+                role__in=[Membership.Role.ADMIN, Membership.Role.OWNER],
+            )
+            if request.user.id not in admins.values_list("user_id", flat=True):
+                return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+            invitation = serializer.save()
+            return Response(InvitationReadSerializer(invitation).data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserInvitationsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get all invitations for the current user"""
+        invitations = GroupInvitation.objects.filter(
+            invited_user=request.user
+        ).order_by('-invited_at')
+        
+        serializer = InvitationListSerializer(invitations, many=True)
+        return Response(serializer.data)
+
+
+class InvitationResponseView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, invitation_id):
+        """Accept or decline an invitation"""
+        try:
+            invitation = GroupInvitation.objects.get(
+                id=invitation_id,
+                invited_user=request.user,
+                status=GroupInvitation.Status.PENDING
+            )
+        except GroupInvitation.DoesNotExist:
+            return Response(
+                {"detail": "Invitation not found or already responded to."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = InvitationUpdateSerializer(
+            invitation,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
+from django.shortcuts import get_object_or_404
 
 from users.serializers import (
     RegisterSerializer,
@@ -8,6 +9,7 @@ from users.serializers import (
     LogoutSerializer,
     RefreshTokenSerializer,
 )
+from users.models import User
 from users.helpers import (
     create_access_and_refresh_token,
     block_token,
@@ -25,6 +27,13 @@ class RegisterView(APIView):
                 {
                     "access": access_token,
                     "refresh": refresh_token,
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "phone_number": user.phone_number,
+                        "email": user.email,
+                        "date_joined": user.date_joined.isoformat(),
+                    }
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -41,6 +50,13 @@ class LoginView(APIView):
                 {
                     "access": access_token,
                     "refresh": refresh_token,
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "phone_number": user.phone_number,
+                        "email": user.email,
+                        "date_joined": user.date_joined.isoformat(),
+                    }
                 },
                 status=status.HTTP_200_OK,
             )
@@ -78,3 +94,29 @@ class RefreshTokenView(APIView):
                     status=status.HTTP_200_OK,
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSearchView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        phone_number = request.GET.get('phone_number')
+        if not phone_number:
+            return Response(
+                {"detail": "phone_number parameter is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(phone_number=phone_number)
+            return Response({
+                "id": user.id,
+                "phone_number": user.phone_number,
+                "email": user.email,
+                "username": user.username
+            })
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )

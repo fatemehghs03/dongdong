@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from groups.models import Group, Membership, GroupJoinRequest, GroupInvitation
+from users.models import User
 from datetime import datetime
 
 
 class GroupWriteSerializer(serializers.ModelSerializer):
-    owner_username = serializers.CharField(source="owner.username", read_only=True)
+    owner_username = serializers.CharField(source="owner.phone_number", read_only=True)
 
     class Meta:
         model = Group
@@ -24,7 +25,7 @@ class GroupWriteSerializer(serializers.ModelSerializer):
 
 
 class GroupReadSerializer(serializers.ModelSerializer):
-    owner_username = serializers.CharField(source="owner.username", read_only=True)
+    owner_username = serializers.CharField(source="owner.phone_number", read_only=True)
 
     class Meta:
         model = Group
@@ -110,9 +111,12 @@ class MembershipUpdateSerializer(serializers.ModelSerializer):
 
 
 class MembershipReadSerializer(serializers.ModelSerializer):
+    user_phone = serializers.CharField(source="user.phone_number", read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+    
     class Meta:
         model = Membership
-        fields = ["user", "group", "role", "id", "joined_at"]
+        fields = ["user_id", "user_phone", "group", "role", "id", "joined_at"]
 
 
 class MembershipWriteSerializer(serializers.ModelSerializer):
@@ -157,6 +161,33 @@ class InvitationWriteSerializer(serializers.ModelSerializer):
         return GroupInvitation.objects.create(invited_by=user, **validated_data)
 
 
+class InvitationByPhoneSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=13)
+    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all())
+    invited_username = serializers.CharField(read_only=True)
+    inviting_username = serializers.CharField(read_only=True)
+
+    def validate_phone_number(self, value):
+        try:
+            user = User.objects.get(phone_number=value)
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User with this phone number does not exist.")
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        phone_number = validated_data["phone_number"]
+        group = validated_data["group"]
+        
+        invited_user = User.objects.get(phone_number=phone_number)
+        
+        return GroupInvitation.objects.create(
+            invited_by=request.user,
+            invited_user=invited_user,
+            group=group
+        )
+
+
 class InvitationReadSerializer(serializers.ModelSerializer):
     invited_username = serializers.CharField(source="invited_user.username", read_only=True)
     inviting_username = serializers.CharField(source="invited_by.username", read_only=True)
@@ -167,6 +198,27 @@ class InvitationReadSerializer(serializers.ModelSerializer):
             "invited_username",
             "id",
             "group",
+            "inviting_username",
+            "invited_at",
+            "status",
+            "responded_at",
+        ]
+
+
+class InvitationListSerializer(serializers.ModelSerializer):
+    invited_username = serializers.CharField(source="invited_user.phone_number", read_only=True)
+    inviting_username = serializers.CharField(source="invited_by.phone_number", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    group_description = serializers.CharField(source="group.description", read_only=True)
+
+    class Meta:
+        model = GroupInvitation
+        fields = [
+            "id",
+            "group",
+            "group_name",
+            "group_description",
+            "invited_username",
             "inviting_username",
             "invited_at",
             "status",

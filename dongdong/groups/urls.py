@@ -7,6 +7,9 @@ from groups.views import (
     GroupMembershipView,
     InvitationView,
     GroupInvitationView,
+    InviteByPhoneView,
+    UserInvitationsView,
+    InvitationResponseView,
 )
 
 urlpatterns = [
@@ -45,4 +48,7 @@ urlpatterns = [
         GroupInvitationView.as_view(),
         name="group-invitations",
     ),
+    path("invite-by-phone/", InviteByPhoneView.as_view(), name="invite-by-phone"),
+    path("my-invitations/", UserInvitationsView.as_view(), name="user-invitations"),
+    path("invitation/<int:invitation_id>/respond/", InvitationResponseView.as_view(), name="invitation-respond"),
 ]
